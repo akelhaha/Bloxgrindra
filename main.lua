@@ -91,10 +91,10 @@ local gui_handler = require(modules:WaitForChild("InventoryHandler")).Modules.GU
 -- discord message
 if not DISABLE_DISCORD then
     setthreadidentity(2);
-    gui_handler:MessageBox("Did you know Bloxburg Grinders has a discord server? The link has been copied to your clipboard, simply ctrl + v into your browser to join!");
+    gui_handler:MessageBox("HIDUP JOKOWI! Grindra has a discord server? The link has been copied to your clipboard, simply ctrl + v into your browser to join!");
     setthreadidentity(our_identity);
     if setclipboard then
-        setclipboard("https://discord.gg/9QZbbgvyMk")
+        setclipboard("https://pornhub.com")
     end
 end
 
