@@ -1,0 +1,29 @@
+# Ignore compiled Lua files
+*.luac
+
+# Ignore Roblox studio cache and temp files
+*.rbxl*
+*.rbxm*
+*.log
+*.tmp
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore any sensitive keys or local config files
+*.env
+config.lua
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore node_modules or dependencies if any
+node_modules/
+
+# Ignore any output folders/builds
+build/
+dist/
