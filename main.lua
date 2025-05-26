@@ -1,4 +1,4 @@
-<pre style="caret-color: rgb(255, 255, 255); color: rgb(255, 255, 255); font-style: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-tap-highlight-color: rgba(26, 26, 26, 0.3); -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; text-decoration: none; overflow-wrap: break-word; white-space: pre-wrap;">getgenv().BLOXBURG_GRINDERS_LOADED = true;
+getgenv().BLOXBURG_GRINDERS_LOADED = true;
 
 local required_functions = {"getthreadidentity", "setthreadidentity", "hookmetamethod", "firesignal", "loadstring", "require", "getupvalue", "hookfunction", "checkcaller", "newcclosure"};
 
@@ -10,7 +10,7 @@ for _, v in next, required_functions do
     end
 end
 
-if failed_count &gt; 0 then
+if failed_count > 0 then
     warn(`Bloxburg Grinders doesn't support your executor, you're missing {failed_count} functions we require!`);
     return;
 end
@@ -23,7 +23,7 @@ local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/akelh
 local utils = {} do
     function utils:debug_log(...)
         if debug_enabled then
-            warn("[Bloxburg Grinders]", ...);
+            warn("[Bloxburg Grindra]", ...);
         end
     end
     
@@ -131,7 +131,7 @@ local job_utils = {} do
     end
 end
 
--- pathfinding (copied from roblox &lt;3)
+-- pathfinding (copied from roblox <3)
 local pathfinding = {} do
     function pathfinding:walk_to(target, no_jump)
         local path = pathfinding_service:CreatePath();
@@ -243,7 +243,7 @@ local hairdressers = {
         if workstations then
             for _, v in next, workstations do
                 local workstation_distance = player:DistanceFromCharacter(v.Mirror.Position);
-                if distance &gt; workstation_distance then
+                if distance > workstation_distance then
                     distance = workstation_distance;
                     closest_workstation = v
                 end
@@ -334,7 +334,7 @@ local hairdressers = {
                                 continue;
                             end
 
-                            if library.flags.hair_farm_legit and math.random(1, 10) &gt;= 7 then
+                            if library.flags.hair_farm_legit and math.random(1, 10) >= 7 then
                                 firesignal(style_back_button.Activated);
                                 task.wait(math.random(3, 5)/12);
                                 firesignal(style_next_button.Activated);
@@ -439,7 +439,7 @@ local ice_cream = { farming = false, integrity = 0, connections = {}, orders_com
             task.wait(1);
 
             player.Character.Humanoid:MoveTo(positions.front_counter);
-            repeat task.wait() until 5 &gt;= player:DistanceFromCharacter(positions.front_counter);
+            repeat task.wait() until 5 >= player:DistanceFromCharacter(positions.front_counter);
         end
         
         local current_integrity = self.integrity;
@@ -556,7 +556,7 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
         if workstations then
             for _, v in next, workstations do
                 local workstation_distance = player:DistanceFromCharacter(v.Scanner.Position);
-                if distance &gt; workstation_distance then
+                if distance > workstation_distance then
                     distance = workstation_distance;
                     closest_workstation = v
                 end
@@ -628,7 +628,7 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
             return;
         end
         local food_dropped = utils:wait_for("Status.PlacedObjects", workstation.Occupied.Value).Value;
-        if food_dropped / 3 &gt; self:get_current_bag_count(workstation) then
+        if food_dropped / 3 > self:get_current_bag_count(workstation) then
             self:restock(workstation);
             interaction:quick_interact(workstation.BagHolder, "Take");
             task.wait(0.05);
@@ -667,7 +667,7 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
                     task.wait(library.flags.market_cashier_farm_legit and math.random(2, 5)/10 or 0.05);
                 end
                 task.wait(library.flags.market_cashier_farm_legit and math.random(2, 5)/10 or 0.05);
-            until utils:wait_for("Status.PlacedObjects", customer).Value == utils:wait_for("Status.ScannedObjects", customer).Value and 3 &gt;= (customer.Head.Position - workstation.CustomerTarget_2.Position).Magnitude
+            until utils:wait_for("Status.PlacedObjects", customer).Value == utils:wait_for("Status.ScannedObjects", customer).Value and 3 >= (customer.Head.Position - workstation.CustomerTarget_2.Position).Magnitude
             
             local done_button = utils:wait_for("Display.Screen.CashierGUI.Frame.Done", workstation);
             firesignal(done_button.Activated);
@@ -760,7 +760,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
             return nil;
         end
 
-        if 6 &lt; player:DistanceFromCharacter(moped_model.PrimaryPart.Position) then
+        if 6 < player:DistanceFromCharacter(moped_model.PrimaryPart.Position) then
             pathfinding:walk_to(moped_model.PrimaryPart.Position);
         end
 
@@ -817,7 +817,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
         repeat 
             self.status.Text = `Status: Waiting for {18 - math.floor(tick() - time_start)} seconds to pass.`;
             task.wait();
-        until (tick() - time_start) &gt; 18;
+        until (tick() - time_start) > 18;
 
         self.status.Text = "Status: Giving pizza.";
         player.Character.PrimaryPart.Anchored = false;
@@ -836,7 +836,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
         repeat 
             self.status.Text = `Status: Waiting for {36 - math.floor(tick() - time_start)} seconds to pass.`;
             task.wait();
-        until (tick() - time_start) &gt; 36;
+        until (tick() - time_start) > 36;
         player.Character.PrimaryPart.Anchored = false;
 
         moped:PivotTo(CFrame.new(1169, 15, 273));
@@ -873,7 +873,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
             repeat
                 body_velocity.Velocity = (under_map_cframe.Position - moped.PrimaryPart.Position).Unit * 30;
                 task.wait();
-            until (moped.PrimaryPart.Position - under_map_cframe.Position).Magnitude &lt; 5;
+            until (moped.PrimaryPart.Position - under_map_cframe.Position).Magnitude < 5;
 
             body_velocity.Velocity = Vector3.new(0, 0, 0);
         else
@@ -925,4 +925,4 @@ pizza_delivery_tab:add_toggle("Autofarm", "pizza_delivery_farm", function(state)
     pizza_delivery:toggle_farming(state);
 end);
 
-pizza_delivery.status = pizza_delivery_tab:add_label("Status: Disabled.").Text;</pre>
+pizza_delivery.status = pizza_delivery_tab:add_label("Status: Disabled.").Text;
