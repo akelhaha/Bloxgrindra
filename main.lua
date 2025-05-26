@@ -817,7 +817,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
         repeat 
             self.status.Text = `Status: Waiting for {18 - math.floor(tick() - time_start)} seconds to pass.`;
             task.wait();
-        until (tick() - time_start) > 0.1;
+        until (tick() - time_start) > 9;
 
         self.status.Text = "Status: Giving pizza.";
         player.Character.PrimaryPart.Anchored = false;
@@ -836,7 +836,7 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
         repeat 
             self.status.Text = `Status: Waiting for {36 - math.floor(tick() - time_start)} seconds to pass.`;
             task.wait();
-        until (tick() - time_start) > 0.2;
+        until (tick() - time_start) > 18;
         player.Character.PrimaryPart.Anchored = false;
 
         moped:PivotTo(CFrame.new(1169, 15, 273));
