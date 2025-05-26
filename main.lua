@@ -17,7 +17,7 @@ end
 
 local our_identity = getthreadidentity and getthreadidentity() or 8;
 local debug_enabled = true;
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/akelhaha/bloxgrindra/main/Bloxburg_AutoFarm_GUI_Mobile.lua"))();
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/akelhaha/bloxgrindra/main/ui.lua"))();
 
 -- utils
 local utils = {} do
