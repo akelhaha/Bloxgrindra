@@ -17,7 +17,14 @@ end
 
 local our_identity = getthreadidentity and getthreadidentity() or 8;
 local debug_enabled = true;
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/akelhaha/bloxgrindra/main/ui.lua"))();
+
+-- Load UI library
+local success, library = pcall(loadstring, game:HttpGet("https://raw.githubusercontent.com/akelhaha/bloxgrindra/main/ui.lua"))
+if not success then
+    warn("[Bloxburg Grindra] Failed to load UI library: " .. tostring(library))
+    return
+end
+library = library()
 
 -- utils
 local utils = {} do
@@ -51,7 +58,7 @@ local utils = {} do
                 base_instance = base_instance:WaitForChild(segment, 10);
                 if not base_instance then
                     warn(`utils:find_from | Stalled at "{segment}" in path "{path}".\n\nTraceback: {debug.traceback()}`);
-                    task.wait(9e9);
+                    return nil
                 end
             else
                 base_instance = base_instance:FindFirstChild(segment);
@@ -90,11 +97,15 @@ local gui_handler = require(modules:WaitForChild("InventoryHandler")).Modules.GU
 
 -- discord message
 if not DISABLE_DISCORD then
-    setthreadidentity(2);
-    gui_handler:MessageBox("Did you know Bloxburg Grinders has a discord server? The link has been copied to your clipboard, simply ctrl + v into your browser to join!");
-    setthreadidentity(our_identity);
-    if setclipboard then
-        setclipboard("https://discord.gg/9QZbbgvyMk")
+    local success, err = pcall(setthreadidentity, 2);
+    if success then
+        gui_handler:MessageBox("Did you know Bloxburg Grinders has a discord server? The link has been copied to your clipboard, simply ctrl + v into your browser to join!");
+        setthreadidentity(our_identity);
+        if setclipboard then
+            pcall(setclipboard, "https://discord.gg/9QZbbgvyMk")
+        end
+    else
+        utils:debug_log("Failed to set thread identity for Discord message: " .. tostring(err))
     end
 end
 
@@ -108,7 +119,11 @@ end)
 -- job functions
 local job_utils = {} do
     function job_utils:is_working()
-        setthreadidentity(2);
+        local success, err = pcall(setthreadidentity, 2);
+        if not success then
+            utils:debug_log("Failed to set thread identity in is_working: " .. tostring(err))
+            return false
+        end
         local current_job = job_module:GetJob();
         setthreadidentity(our_identity);
         return current_job ~= nil, current_job;
@@ -119,7 +134,11 @@ local job_utils = {} do
         if is_working then
             return false, "Already working.";
         end
-        setthreadidentity(2);
+        local success, err = pcall(setthreadidentity, 2);
+        if not success then
+            utils:debug_log("Failed to set thread identity in start_shift: " .. tostring(err))
+            return false
+        end
         job_module:GoToWork(job);
         setthreadidentity(our_identity);
         if callback then callback() end
@@ -127,7 +146,11 @@ local job_utils = {} do
 
     function job_utils:end_shift()
         local end_shift_btn = utils:wait_for("PlayerGui.MainGUI.Bar.CharMenu.WorkFrame.WorkFrame.Action", player);
-        firesignal(end_shift_btn.Activated);
+        if end_shift_btn then
+            firesignal(end_shift_btn.Activated);
+        else
+            utils:debug_log("Failed to find end shift button")
+        end
     end
 end
 
@@ -166,7 +189,7 @@ local pathfinding = {} do
             blocked_connection = nil;
 
         else
-            utils:debug_log("err")
+            utils:debug_log("Pathfinding error: " .. tostring(err_message))
             return self:walk_to(target, false)
         end
     end
@@ -175,7 +198,12 @@ end
 -- interaction handler
 local interaction = {} do
     function interaction:click_btn(text)
-        for _, v in next, utils:wait_for("PlayerGui._interactUI", player):GetChildren() do
+        local interact_ui = utils:wait_for("PlayerGui._interactUI", player)
+        if not interact_ui then
+            utils:debug_log("Failed to find _interactUI")
+            return
+        end
+        for _, v in next, interact_ui:GetChildren() do
             if v:FindFirstChild("Button") and v.Button:FindFirstChild("TextLabel") and v.Button.TextLabel.Text == text then
                 firesignal(v.Button.Activated);
             end
@@ -184,7 +212,11 @@ local interaction = {} do
 
     function interaction:quick_interact(model, text, specified_part)
         local part = specified_part or model.PrimaryPart or model:FindFirstChildOfClass("MeshPart") or model:FindFirstChildOfClass("BasePart");
-        setthreadidentity(2);
+        local success, err = pcall(setthreadidentity, 2);
+        if not success then
+            utils:debug_log("Failed to set thread identity in quick_interact: " .. tostring(err))
+            return
+        end
         interaction_module:ShowMenu(model, part.Position, part);
         setthreadidentity(our_identity);
         self:click_btn(text);
@@ -195,7 +227,6 @@ end
 local hairdressers = {
     do_actions = {}
 } do
-
     function hairdressers:get_do_actions()
         if #hairdressers.do_actions == 4 then
             return hairdressers.do_actions;
@@ -252,7 +283,12 @@ local hairdressers = {
         end
     end
 
-    function hairdressers:claim_workstation(workstation)
+    function hairdressers:claim_workstation(workstation, attempts)
+        attempts = attempts or 1
+        if attempts > 5 then
+            utils:debug_log("Failed to claim workstation after 5 attempts")
+            return nil
+        end
         player.Character.Humanoid:MoveTo(workstation.Mat.Position);
         
         local next_button = utils:wait_for("Mirror.HairdresserGUI.Frame.Style.Next", workstation);
@@ -266,7 +302,7 @@ local hairdressers = {
         until workstation.InUse.Value ~= nil
 
         if workstation.InUse.Value ~= player then
-            return self:claim_workstation(self:get_nearest_workstation());
+            return self:claim_workstation(self:get_nearest_workstation(), attempts + 1);
         end
 
         return workstation;
@@ -293,26 +329,29 @@ local hairdressers = {
         local style, style_idx = utils:wait_for("Order.Style", npc), nil;
         local color, color_idx = utils:wait_for("Order.Color", npc), nil;
 
+        if not (style and color) then
+            utils:debug_log("Failed to get order indices: style or color missing")
+            return nil
+        end
+
         local hair_styles = getupvalue(hairdressers.do_actions[1], 6);
         local hair_colors = getupvalue(hairdressers.do_actions[1], 8);
 
-        if style and color then 
-            for i, v in next, hair_styles do
-                if tostring(v) == style.Value then
-                    style_idx = i;
-                    break;
-                end
+        for i, v in next, hair_styles do
+            if tostring(v) == style.Value then
+                style_idx = i;
+                break;
             end
-
-            for i, v in next, hair_colors do
-                if tostring(v) == color.Value then
-                    color_idx = i;
-                    break;
-                end
-            end
-
-            return {style_idx, color_idx};
         end
+
+        for i, v in next, hair_colors do
+            if tostring(v) == color.Value then
+                color_idx = i;
+                break;
+            end
+        end
+
+        return {style_idx, color_idx};
     end
 
     function hairdressers:complete_order()
@@ -395,7 +434,6 @@ local hairdressers = {
     end
 end
 
-
 -- ice cream
 local ice_cream = { farming = false, integrity = 0, connections = {}, orders_completed = 0 } do
     local positions = {
@@ -406,13 +444,18 @@ local ice_cream = { farming = false, integrity = 0, connections = {}, orders_com
     };
 
     function ice_cream:get_workstation()
-        local workstations = utils:wait_for("BensIceCream.CustomerTargets", locations):GetChildren();
-        for _, workstation in next, workstations do
+        local workstations = utils:wait_for("BensIceCream.CustomerTargets", locations)
+        if not workstations then
+            utils:debug_log("Failed to find CustomerTargets")
+            return nil
+        end
+        for _, workstation in next, workstations:GetChildren() do
             local customer = workstation.Occupied.Value;
             if customer and customer.Order.Value == "" then
                 return workstation, customer;
             end
         end
+        return nil
     end
 
     function ice_cream:toggle_farming(state)
@@ -464,12 +507,21 @@ local ice_cream = { farming = false, integrity = 0, connections = {}, orders_com
                         task.wait(math.random(20, 30)/10)
                     end
                     local table_objs = utils:wait_for("BensIceCream.TableObjects", locations);
+                    if not table_objs then
+                        utils:debug_log("Failed to find TableObjects")
+                        continue
+                    end
                     
-                    local flavor1 = utils:wait_for("Order.Flavor1", customer).Value;
-                    local flavor2 = utils:wait_for("Order.Flavor2", customer).Value;
-                    local topping = utils:wait_for("Order.Topping", customer).Value;
+                    local flavor1 = utils:wait_for("Order.Flavor1", customer)
+                    local flavor2 = utils:wait_for("Order.Flavor2", customer)
+                    local topping = utils:wait_for("Order.Topping", customer)
                     
-                    utils:debug_log(`Order {self.orders_completed + 1} - Making a {flavor1} + {flavor2}{topping ~= "" and " with " .. topping or ""}.`);
+                    if not (flavor1 and flavor2 and table_objs:FindFirstChild(flavor1.Value) and table_objs:FindFirstChild(flavor2.Value)) then
+                        utils:debug_log("Invalid or missing flavors for order")
+                        continue
+                    end
+                    
+                    utils:debug_log(`Order {self.orders_completed + 1} - Making a {flavor1.Value} + {flavor2.Value}{topping.Value ~= "" and " with " .. topping.Value or ""}.`);
 
                     player.Character.Humanoid:MoveTo(positions.cup_station);
                     player.Character.Humanoid.MoveToFinished:Wait();
@@ -490,18 +542,17 @@ local ice_cream = { farming = false, integrity = 0, connections = {}, orders_com
                         player.Character.Humanoid.MoveToFinished:Wait();
                     end
 
-                    interaction:quick_interact(table_objs:FindFirstChild(flavor1), "Add");
+                    interaction:quick_interact(table_objs:FindFirstChild(flavor1.Value), "Add");
                     task.wait(library.flags.ice_farm_legit and math.random(5, 13)/10 or 0.25);
-                    interaction:quick_interact(table_objs:FindFirstChild(flavor2), "Add");
+                    interaction:quick_interact(table_objs:FindFirstChild(flavor2.Value), "Add");
                     task.wait(library.flags.ice_farm_legit and math.random(5, 13)/10 or 0.25);
 
-
-                    if topping ~= "" then
+                    if topping.Value ~= "" then
                         if library.flags.ice_farm_legit then
                             player.Character.Humanoid:MoveTo(positions.topping_station);
                             player.Character.Humanoid.MoveToFinished:Wait();
                         end
-                        interaction:quick_interact(table_objs:FindFirstChild(topping), "Add");
+                        interaction:quick_interact(table_objs:FindFirstChild(topping.Value), "Add");
                         task.wait(library.flags.ice_farm_legit and math.random(3, 5)/10 or 0.1)
                     end
 
@@ -530,7 +581,7 @@ local ice_cream = { farming = false, integrity = 0, connections = {}, orders_com
 end
 
 -- supermarket cashier
-local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
+local supermarket_cashier = { farming = false, orders_completed = 0 } do
     function supermarket_cashier:get_workstations()
         local workstation_folder = utils:wait_for("Supermarket.CashierWorkstations", locations);
         
@@ -567,6 +618,10 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
 
     function supermarket_cashier:claim_workstation()
         local workstation = self:get_nearest_workstation();
+        if not workstation then
+            utils:debug_log("No workstation available")
+            return nil
+        end
         pathfinding:walk_to(workstation.Scanner.Position - Vector3.new(4, 0, 0));
         interaction:quick_interact(workstation.BagHolder, "Take");
         return workstation;
@@ -586,18 +641,22 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
         if not workstation then
             workstation = supermarket_cashier:claim_workstation();
         end
-
+        if not workstation then return false end
         return workstation.BagsLeft.Value == 0;
     end
 
     function supermarket_cashier:restock(workstation)
         local workstation = workstation or self:get_workstation();
-        if not self:needs_restocking() then
+        if not workstation or not self:needs_restocking() then
             return;
         end
         
         if not utils:find("BFF Bags", player.Character) then
             local crate = utils:wait_for("Supermarket.Crates.BagCrate", locations);
+            if not crate then
+                utils:debug_log("Failed to find BagCrate")
+                return
+            end
             
             pathfinding:walk_to(crate.Position + Vector3.new(5, 0, -5));
             task.wait(0.5);
@@ -616,19 +675,19 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
     end
 
     function supermarket_cashier:get_current_bag_count(workstation)
-        local bag_count = 8;
-        for _, v in next, workstation.Bags:GetChildren() do
-            bag_count -= v.Transparency
-        end
-        return bag_count;
+        return workstation.BagsLeft.Value
     end
 
     function supermarket_cashier:on_dropped_food(workstation, food)
         if not self.farming then
             return;
         end
-        local food_dropped = utils:wait_for("Status.PlacedObjects", workstation.Occupied.Value).Value;
-        if food_dropped / 3 > self:get_current_bag_count(workstation) then
+        local food_dropped = utils:wait_for("Status.PlacedObjects", workstation.Occupied.Value)
+        if not food_dropped then
+            utils:debug_log("Failed to find PlacedObjects")
+            return
+        end
+        if food_dropped.Value / 3 > self:get_current_bag_count(workstation) then
             self:restock(workstation);
             interaction:quick_interact(workstation.BagHolder, "Take");
             task.wait(0.05);
@@ -650,6 +709,11 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
             workstation = self:claim_workstation();
         end
         
+        if not workstation then
+            utils:debug_log("No workstation available")
+            return
+        end
+
         self:restock(workstation);
 
         if not self.farming then
@@ -661,20 +725,30 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
         local customer = workstation.Occupied.Value;
         
         if customer ~= nil then
-            repeat
-                for _, v in next, workstation.DroppedFood:GetChildren() do
-                    self:on_dropped_food(workstation, v);
-                    task.wait(library.flags.market_cashier_farm_legit and math.random(2, 5)/10 or 0.05);
+            local connection
+            connection = workstation.DroppedFood.ChildAdded:Connect(function(food)
+                if not self.farming then
+                    connection:Disconnect()
+                    return
                 end
+                self:on_dropped_food(workstation, food)
+            end)
+            
+            repeat
                 task.wait(library.flags.market_cashier_farm_legit and math.random(2, 5)/10 or 0.05);
             until utils:wait_for("Status.PlacedObjects", customer).Value == utils:wait_for("Status.ScannedObjects", customer).Value and 3 >= (customer.Head.Position - workstation.CustomerTarget_2.Position).Magnitude
             
             local done_button = utils:wait_for("Display.Screen.CashierGUI.Frame.Done", workstation);
-            firesignal(done_button.Activated);
+            if done_button then
+                firesignal(done_button.Activated);
+            else
+                utils:debug_log("Failed to find Done button")
+            end
 
             repeat task.wait() until workstation.Occupied.Value ~= customer;
 
             self.orders_completed += 1;
+            connection:Disconnect()
         end
     end
 
@@ -726,9 +800,10 @@ local supermarket_cashier = { farming = false,  orders_completed = 0 }; do
     end
 end
 
-local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
+-- pizza delivery
+local pizza_delivery = { current_customer = nil, max_speed = 50 } do
     for _, v in next, workspace.Environment["Roads [LOCAL]"]:GetDescendants() do
-        if v.Name == "Road" or v.Name == "Pavement" then
+        if (v.Name == "Road" or v.Name == "Pavement") and not v:FindFirstChildOfClass("PathfindingModifier") then
             local modifier = Instance.new("PathfindingModifier");
             modifier.Label = v.Name;
             modifier.Parent = v;
@@ -748,16 +823,16 @@ local pizza_delivery = { current_customer = nil, max_speed = 50 }; do
         self.status.Text = "Status: Getting Job."
 
         job_utils:start_shift("PizzaPlanetDelivery");
-            pcall(function() player.Data.JobData.PizzaPlanetDelivery.Level = 50 end)
-end
+    end
 
     function pizza_delivery:our_moped()
-        return player.Character:FindFirstChild("Vehicle_Delivery Moped");
+        return player.Character and player.Character:FindFirstChild("Vehicle_Delivery Moped");
     end
 
     function pizza_delivery:claim_moped()
         local moped_model = utils:find("PizzaPlanet.DeliveryMoped", locations);
         if not moped_model then
+            utils:debug_log("Failed to find DeliveryMoped")
             return nil;
         end
 
@@ -780,6 +855,10 @@ end
         end
 
         local boxes = utils:wait_for("PizzaPlanet.Conveyor.MovingBoxes", locations);
+        if not boxes then
+            utils:debug_log("Failed to find MovingBoxes")
+            return nil
+        end
         for _, v in next, boxes:GetChildren() do
             interaction:quick_interact(v, "Take", v);
             task.wait(0.25);
@@ -798,25 +877,37 @@ end
             moped = self:claim_moped();
         end
         
+        if not moped then
+            utils:debug_log("Failed to claim moped")
+            return
+        end
+        
         self.status.Text = "Status: Getting pizza.";
-        moped:PivotTo(CFrame.new(1169, 15, 273))
+        local pizza_planet = utils:wait_for("PizzaPlanet", locations)
+        if not pizza_planet then
+            utils:debug_log("Failed to find PizzaPlanet")
+            return
+        end
+        moped:PivotTo(CFrame.new(pizza_planet.PrimaryPart.Position))
         
         repeat
             self:grab_box();
             task.wait(0.3);
         until self.current_customer ~= nil;
         
+        if not self.current_customer then
+            utils:debug_log("No customer assigned")
+            return
+        end
+        
         self.status.Text = "Status: Going to customer.";
         local time_start = tick();
-        moped:PivotTo(CFrame.new(1169, -45, 273))
+        moped:PivotTo(CFrame.new(pizza_planet.PrimaryPart.Position - Vector3.new(0, 45, 0)))
         
         local customer_cframe = self.current_customer:WaitForChild("HumanoidRootPart").CFrame;
         
-        self:move_to(customer_cframe - Vector3.new(0, 45, 0));
-        repeat 
-            self.status.Text = `Status: Waiting for {18 - math.floor(tick() - time_start)} seconds to pass.`;
-            task.wait();
-        until (tick() - time_start) > 18;
+        self:move_to(customer_cframe.Position - Vector3.new(0, 45, 0));
+        task.wait(18)
 
         self.status.Text = "Status: Giving pizza.";
         
@@ -828,13 +919,10 @@ end
         
         self.status.Text = "Status: Complete! Going to pizza place.";
         moped:PivotTo(customer_cframe - Vector3.new(0, 45, 0));
-        self:move_to(Vector3.new(1169, -45, 273));
-        repeat 
-            self.status.Text = `Status: Waiting for {36 - math.floor(tick() - time_start)} seconds to pass.`;
-            task.wait();
-        until (tick() - time_start) > 36;
+        self:move_to(pizza_planet.PrimaryPart.Position - Vector3.new(0, 45, 0));
+        task.wait(18)
 
-        moped:PivotTo(CFrame.new(1169, 15, 273));
+        moped:PivotTo(CFrame.new(pizza_planet.PrimaryPart.Position));
     end
 
     function pizza_delivery:toggle_farming(state)
@@ -866,7 +954,7 @@ end
             body_velocity.Parent = moped.PrimaryPart;
 
             repeat
-                body_velocity.Velocity = (under_map_cframe.Position - moped.PrimaryPart.Position)H0;
+                body_velocity.Velocity = (under_map_cframe.Position - moped.PrimaryPart.Position);
                 task.wait();
             until (moped.PrimaryPart.Position - under_map_cframe.Position).Magnitude < 5;
 
@@ -878,7 +966,33 @@ end
     end
 end
 
--- hooks (sadly necessary at this stage :c)
+-- Spoof job level after UI initialization
+local function spoof_job_level()
+    local max_attempts = 10
+    local attempt = 1
+    while attempt <= max_attempts and not player.Data do
+        utils:debug_log("Waiting for player.Data to load, attempt " .. attempt)
+        task.wait(1)
+        attempt = attempt + 1
+    end
+    if not player.Data then
+        utils:debug_log("Failed to load player.Data after " .. max_attempts .. " seconds")
+        return
+    end
+    local success, err = pcall(function()
+        player.Data.JobData.PizzaPlanetDelivery.Level = 50
+    end)
+    if not success then
+        utils:debug_log("Failed to spoof job level: " .. tostring(err))
+    else
+        utils:debug_log("Successfully spoofed PizzaPlanetDelivery level to 50")
+    end
+end
+
+-- Execute spoofing after UI is initialized
+task.spawn(spoof_job_level)
+
+-- hooks
 local old_mt; old_mt = hookmetamethod(game, "__namecall", function(...)
     local args = {...};
     if getnamecallmethod() == "InvokeServer" and string.match(debug.traceback(), "JobHandler.PizzaPlanetDelivery") then
@@ -890,6 +1004,7 @@ local old_mt; old_mt = hookmetamethod(game, "__namecall", function(...)
     return old_mt(...);
 end);
 
+-- Initialize UI
 library:create_window("Bloxburg Grinders", 220);
 
 local hair_tab = library:add_section("Hairdressers");
